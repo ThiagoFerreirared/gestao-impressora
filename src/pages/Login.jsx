@@ -7,16 +7,14 @@ const ERRORS = {
   'auth/invalid-credential': 'E-mail ou senha incorretos.',
   'auth/user-not-found': 'Usuário não encontrado.',
   'auth/wrong-password': 'Senha incorreta.',
-  'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
-  'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
   'auth/invalid-email': 'E-mail inválido.',
   'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco e tente novamente.',
 };
 
 export default function Login() {
-  const { login, register, resetPassword } = useAuth();
+  const { login, resetPassword } = useAuth();
   const toast = useToast();
-  const [mode, setMode] = useState('login'); // login | register | reset
+  const [mode, setMode] = useState('login'); // login | reset
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,10 +23,8 @@ export default function Login() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === 'login') await login(email, password);
-      else if (mode === 'register') {
-        await register(email, password);
-        toast('Conta criada! Bem-vindo(a).');
+      if (mode === 'login') {
+        await login(email, password);
       } else {
         await resetPassword(email);
         toast('E-mail de redefinição enviado. Verifique sua caixa de entrada.');
@@ -68,7 +64,7 @@ export default function Login() {
             />
           </div>
 
-          {mode !== 'reset' && (
+          {mode === 'login' && (
             <div>
               <label className="label">Senha</label>
               <input
@@ -79,31 +75,20 @@ export default function Login() {
                 placeholder="••••••••"
                 required
                 minLength={6}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete="current-password"
               />
             </div>
           )}
 
           <button className="btn-primary w-full" disabled={busy}>
-            {busy
-              ? 'Aguarde...'
-              : mode === 'login'
-                ? 'Entrar'
-                : mode === 'register'
-                  ? 'Criar conta'
-                  : 'Enviar e-mail de redefinição'}
+            {busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Enviar e-mail de redefinição'}
           </button>
 
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex justify-end text-xs">
             {mode === 'login' ? (
-              <>
-                <button type="button" className="text-blue-500 hover:underline" onClick={() => setMode('register')}>
-                  Criar conta
-                </button>
-                <button type="button" className="text-slate-400 hover:underline" onClick={() => setMode('reset')}>
-                  Esqueci a senha
-                </button>
-              </>
+              <button type="button" className="text-slate-400 hover:underline" onClick={() => setMode('reset')}>
+                Esqueci a senha
+              </button>
             ) : (
               <button type="button" className="text-blue-500 hover:underline" onClick={() => setMode('login')}>
                 ← Voltar para o login
