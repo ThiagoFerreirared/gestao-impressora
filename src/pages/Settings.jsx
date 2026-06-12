@@ -368,6 +368,7 @@ function ImportTab() {
           startedAt: null, finishedAt: null, realMinutes: 0, realSlots: [],
         }));
 
+        const bgt = proj.budget || {};
         await api.add('projects', {
           name: proj.name || 'Projeto importado',
           clientId: proj.clientId || '',
@@ -382,12 +383,19 @@ function ImportTab() {
           notes: proj.notes || '',
           parts, failures: [], postSteps: [], quality: '', photos: [],
           budget: {
-            laborMode: 'hourly',
-            laborHours: Number(proj.laborHours) || 0,
-            laborFixed: 0, finishing: [],
-            packagingCost: 0, shippingCost: 0,
-            margins: { ...settings.margins },
-            promoDiscount: 0, manualPrice: null,
+            laborMode: bgt.laborMode || 'hourly',
+            laborHours: Number(bgt.laborHours) || 0,
+            laborFixed: Number(bgt.laborFixed) || 0,
+            finishing: (bgt.finishing || []).map((f) => ({ desc: f.desc || '', value: Number(f.value) || 0 })),
+            packagingCost: Number(bgt.packagingCost) || 0,
+            shippingCost: Number(bgt.shippingCost) || 0,
+            margins: {
+              sale: Number(bgt.margins?.sale ?? settings.margins.sale),
+              resale: Number(bgt.margins?.resale ?? settings.margins.resale),
+              wholesale: Number(bgt.margins?.wholesale ?? settings.margins.wholesale),
+            },
+            promoDiscount: Number(bgt.promoDiscount) || 0,
+            manualPrice: bgt.manualPrice != null ? Number(bgt.manualPrice) : null,
             priceHistory: [], estimateSnapshot: null,
           },
         }, proj.name);
