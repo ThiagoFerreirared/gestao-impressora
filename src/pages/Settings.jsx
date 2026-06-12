@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Download, Plus, Save } from 'lucide-react';
+import { Download, Plus, Save, Upload } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import Tabs from '../components/ui/Tabs';
 import { FormGrid, Input, Textarea } from '../components/ui/Field';
 import { exportJSON } from '../lib/export';
-import { dateTimeBR, money, toNum } from '../lib/format';
+import { dateTimeBR, money, toNum, uid } from '../lib/format';
+import { MAINTENANCE_TYPES } from '../lib/constants';
+import { addSpoolWithExpense } from '../lib/ops';
 
 export default function Settings() {
   const [tab, setTab] = useState('geral');
@@ -24,6 +26,7 @@ export default function Settings() {
           { key: 'listas', label: 'Materiais & marcas' },
           { key: 'checklists', label: 'Checklists' },
           { key: 'backup', label: 'Backup' },
+          { key: 'importar', label: 'Importar' },
           { key: 'log', label: 'Log de alterações', count: activity.length },
         ]}
         active={tab}
@@ -34,6 +37,7 @@ export default function Settings() {
       {tab === 'listas' && <ListsTab />}
       {tab === 'checklists' && <ChecklistsTab />}
       {tab === 'backup' && <BackupTab />}
+      {tab === 'importar' && <ImportTab />}
       {tab === 'log' && <LogTab />}
     </div>
   );
@@ -241,6 +245,161 @@ function BackupTab() {
       <p className="text-xs text-slate-400">
         Dica: os dados também ficam protegidos no Firebase. Para exportar tabelas específicas em Excel/PDF, use as páginas
         Financeiro e Relatórios.
+      </p>
+    </div>
+  );
+}
+
+// ───────────────────────── Importar ─────────────────────────
+
+function ImportTab() {
+  const { api } = useData();
+  const toast = useToast();
+  const [raw, setRaw] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const parse = () => {
+    setError('');
+    setPreview(null);
+    try {
+      const json = JSON.parse(raw.trim());
+      const printers = Array.isArray(json.printers) ? json.printers : [];
+      const spools = Array.isArray(json.spools) ? json.spools : [];
+      if (printers.length === 0 && spools.length === 0) {
+        setError('Nenhum dado encontrado. Verifique se o JSON tem os campos "printers" e/ou "spools".');
+        return;
+      }
+      setPreview({ printers, spools });
+    } catch {
+      setError('JSON inválido. Verifique o texto colado.');
+    }
+  };
+
+  const execute = async () => {
+    if (!preview) return;
+    setBusy(true);
+    let added = 0;
+    try {
+      for (const p of preview.printers) {
+        const data = {
+          name: p.name || 'Impressora importada',
+          model: p.model || '',
+          serial: p.serial || '',
+          purchaseDate: p.purchaseDate || '',
+          purchasePrice: Number(p.purchasePrice) || 0,
+          lifespanHours: Number(p.lifespanHours) || 5000,
+          hoursUsed: Number(p.hoursUsed) || 0,
+          watts: Number(p.watts) || null,
+          status: p.status || 'ativa',
+          notes: p.notes || '',
+          schedules: MAINTENANCE_TYPES.map((m) => ({
+            id: uid(),
+            type: m.type,
+            intervalHours: m.intervalHours,
+            lastDoneHours: Number(p.hoursUsed) || 0,
+            lastDoneDate: '',
+          })),
+        };
+        await api.add('printers', data, data.name);
+        added++;
+      }
+      for (const s of preview.spools) {
+        const data = {
+          brand: s.brand || '',
+          material: s.material || '',
+          colorName: s.colorName || '',
+          colorHex: s.colorHex || '#888888',
+          finish: s.finish || 'Basic',
+          diameter: s.diameter || '1.75',
+          initialWeight: Number(s.initialWeight) || 1000,
+          currentWeight: Number(s.currentWeight ?? s.initialWeight) || 1000,
+          price: Number(s.price) || 0,
+          supplier: s.supplier || '',
+          purchaseDate: s.purchaseDate || '',
+          batch: s.batch || '',
+          location: s.location || '',
+          alertThreshold: Number(s.alertThreshold) || 100,
+          reorderPlaced: false,
+          notes: s.notes || '',
+        };
+        await addSpoolWithExpense(api, data);
+        added++;
+      }
+      toast(`${added} item(ns) importado(s) com sucesso!`);
+      setRaw('');
+      setPreview(null);
+    } catch (err) {
+      toast(`Erro na importação: ${err.message}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card-pad max-w-3xl space-y-4">
+      <h3 className="section-title">Importação rápida de compras</h3>
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        Cole abaixo o JSON com as impressoras e/ou bobinas que deseja adicionar. O sistema vai pré-visualizar o que será importado antes de confirmar.
+      </p>
+
+      <textarea
+        className="input min-h-[160px] font-mono text-xs"
+        placeholder={'{\n  "printers": [...],\n  "spools": [...]\n}'}
+        value={raw}
+        onChange={(e) => { setRaw(e.target.value); setPreview(null); setError(''); }}
+      />
+
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500 dark:bg-red-500/10">{error}</p>}
+
+      <button className="btn-secondary" onClick={parse} disabled={!raw.trim()}>
+        <Upload size={15} /> Pré-visualizar importação
+      </button>
+
+      {preview && (
+        <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+          <p className="font-semibold text-blue-700 dark:text-blue-300">
+            Pronto para importar: {preview.printers.length} impressora(s) · {preview.spools.length} bobina(s)
+          </p>
+
+          {preview.printers.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Impressoras</p>
+              <ul className="space-y-1">
+                {preview.printers.map((p, i) => (
+                  <li key={i} className="text-sm">
+                    <b>{p.name}</b> — {p.model} · {money(p.purchasePrice)} · {p.purchaseDate}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {preview.spools.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Bobinas</p>
+              <ul className="space-y-1">
+                {preview.spools.map((s, i) => (
+                  <li key={i} className="text-sm">
+                    <b>{s.brand} {s.material}</b> {s.colorName} · {s.diameter}mm · {money(s.price)} · {s.purchaseDate}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button className="btn-primary" onClick={execute} disabled={busy}>
+              {busy ? 'Importando...' : 'Confirmar importação'}
+            </button>
+            <button className="btn-secondary" onClick={() => { setPreview(null); setRaw(''); }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-slate-400">
+        As despesas de compra das bobinas são lançadas automaticamente no Financeiro. As impressoras recebem a agenda de manutenção padrão.
       </p>
     </div>
   );
