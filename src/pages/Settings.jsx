@@ -253,25 +253,60 @@ function BackupTab() {
 // ───────────────────────── Importar ─────────────────────────
 
 function ImportTab() {
-  const { api } = useData();
+  const { api, spools, printers, settings } = useData();
   const toast = useToast();
   const [raw, setRaw] = useState('');
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const findSpool = (material, colorName, brand) =>
+    spools.find((sp) =>
+      sp.material?.toLowerCase() === material?.toLowerCase() &&
+      sp.colorName?.toLowerCase() === colorName?.toLowerCase() &&
+      (!brand || sp.brand?.toLowerCase() === brand?.toLowerCase())
+    );
+
+  const findPrinter = (name) =>
+    printers.find((p) =>
+      p.name?.toLowerCase().includes(name?.toLowerCase()) ||
+      p.model?.toLowerCase().includes(name?.toLowerCase())
+    );
+
   const parse = () => {
     setError('');
     setPreview(null);
     try {
       const json = JSON.parse(raw.trim());
-      const printers = Array.isArray(json.printers) ? json.printers : [];
-      const spools = Array.isArray(json.spools) ? json.spools : [];
-      if (printers.length === 0 && spools.length === 0) {
-        setError('Nenhum dado encontrado. Verifique se o JSON tem os campos "printers" e/ou "spools".');
+      const importPrinters = Array.isArray(json.printers) ? json.printers : [];
+      const importSpools = Array.isArray(json.spools) ? json.spools : [];
+      const importProjects = Array.isArray(json.projects) ? json.projects : [];
+
+      if (!importPrinters.length && !importSpools.length && !importProjects.length) {
+        setError('Nenhum dado encontrado. O JSON deve ter os campos "printers", "spools" e/ou "projects".');
         return;
       }
-      setPreview({ printers, spools });
+
+      const warnings = [];
+      const resolvedProjects = importProjects.map((proj) => {
+        const parts = (proj.parts || []).map((part) => {
+          const printer = part.printerName ? findPrinter(part.printerName) : null;
+          if (part.printerName && !printer)
+            warnings.push(`Impressora "${part.printerName}" não encontrada — verifique o nome exato.`);
+
+          const slots = (part.slots || []).map((s) => {
+            const spool = findSpool(s.material, s.colorName, s.brand);
+            if (!spool)
+              warnings.push(`Bobina "${s.brand || ''} ${s.material} ${s.colorName}" não encontrada.`);
+            return { ...s, spoolId: spool?.id || '' };
+          });
+
+          return { ...part, printerId: printer?.id || '', resolvedPrinterName: printer?.name || part.printerName || '', slots };
+        });
+        return { ...proj, parts };
+      });
+
+      setPreview({ printers: importPrinters, spools: importSpools, projects: resolvedProjects, warnings });
     } catch {
       setError('JSON inválido. Verifique o texto colado.');
     }
@@ -283,7 +318,7 @@ function ImportTab() {
     let added = 0;
     try {
       for (const p of preview.printers) {
-        const data = {
+        await api.add('printers', {
           name: p.name || 'Impressora importada',
           model: p.model || '',
           serial: p.serial || '',
@@ -295,38 +330,70 @@ function ImportTab() {
           status: p.status || 'ativa',
           notes: p.notes || '',
           schedules: MAINTENANCE_TYPES.map((m) => ({
-            id: uid(),
-            type: m.type,
-            intervalHours: m.intervalHours,
-            lastDoneHours: Number(p.hoursUsed) || 0,
-            lastDoneDate: '',
+            id: uid(), type: m.type, intervalHours: m.intervalHours,
+            lastDoneHours: Number(p.hoursUsed) || 0, lastDoneDate: '',
           })),
-        };
-        await api.add('printers', data, data.name);
+        }, p.name);
         added++;
       }
+
       for (const s of preview.spools) {
-        const data = {
-          brand: s.brand || '',
-          material: s.material || '',
-          colorName: s.colorName || '',
-          colorHex: s.colorHex || '#888888',
-          finish: s.finish || 'Basic',
-          diameter: s.diameter || '1.75',
+        await addSpoolWithExpense(api, {
+          brand: s.brand || '', material: s.material || '',
+          colorName: s.colorName || '', colorHex: s.colorHex || '#888888',
+          finish: s.finish || 'Basic', diameter: s.diameter || '1.75',
           initialWeight: Number(s.initialWeight) || 1000,
           currentWeight: Number(s.currentWeight ?? s.initialWeight) || 1000,
-          price: Number(s.price) || 0,
-          supplier: s.supplier || '',
-          purchaseDate: s.purchaseDate || '',
-          batch: s.batch || '',
-          location: s.location || '',
-          alertThreshold: Number(s.alertThreshold) || 100,
-          reorderPlaced: false,
-          notes: s.notes || '',
-        };
-        await addSpoolWithExpense(api, data);
+          price: Number(s.price) || 0, supplier: s.supplier || '',
+          purchaseDate: s.purchaseDate || '', batch: s.batch || '',
+          location: s.location || '', alertThreshold: Number(s.alertThreshold) || 100,
+          reorderPlaced: false, notes: s.notes || '',
+        });
         added++;
       }
+
+      for (const proj of preview.projects) {
+        const parts = (proj.parts || []).map((part) => ({
+          id: uid(),
+          name: part.name || 'Parte 1',
+          quantity: Number(part.quantity) || 1,
+          printerId: part.printerId || '',
+          estMinutes: Number(part.estMinutes) || 0,
+          slots: (part.slots || []).map((s) => ({
+            slot: s.slot, spoolId: s.spoolId || '',
+            gramsPiece: Number(s.gramsPiece) || 0, gramsPurge: Number(s.gramsPurge) || 0,
+          })),
+          sliceData: { fileName: '', profileName: '', layerHeight: '', filamentWeight: '' },
+          prodStatus: 'pendente', attempts: 0,
+          startedAt: null, finishedAt: null, realMinutes: 0, realSlots: [],
+        }));
+
+        await api.add('projects', {
+          name: proj.name || 'Projeto importado',
+          clientId: proj.clientId || '',
+          category: proj.category || 'Personalizado',
+          priority: proj.priority || 'normal',
+          status: proj.status || 'orcamento',
+          deadline: proj.deadline || '',
+          description: proj.description || '',
+          scale: proj.scale || '100%',
+          isTest: !!proj.isTest,
+          tags: [], files: [], images: [],
+          notes: proj.notes || '',
+          parts, failures: [], postSteps: [], quality: '', photos: [],
+          budget: {
+            laborMode: 'hourly',
+            laborHours: Number(proj.laborHours) || 0,
+            laborFixed: 0, finishing: [],
+            packagingCost: 0, shippingCost: 0,
+            margins: { ...settings.margins },
+            promoDiscount: 0, manualPrice: null,
+            priceHistory: [], estimateSnapshot: null,
+          },
+        }, proj.name);
+        added++;
+      }
+
       toast(`${added} item(ns) importado(s) com sucesso!`);
       setRaw('');
       setPreview(null);
@@ -339,14 +406,14 @@ function ImportTab() {
 
   return (
     <div className="card-pad max-w-3xl space-y-4">
-      <h3 className="section-title">Importação rápida de compras</h3>
+      <h3 className="section-title">Importação rápida</h3>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Cole abaixo o JSON com as impressoras e/ou bobinas que deseja adicionar. O sistema vai pré-visualizar o que será importado antes de confirmar.
+        Cole o JSON com impressoras, bobinas e/ou projetos. O sistema pré-visualiza e resolve automaticamente as referências antes de confirmar.
       </p>
 
       <textarea
         className="input min-h-[160px] font-mono text-xs"
-        placeholder={'{\n  "printers": [...],\n  "spools": [...]\n}'}
+        placeholder={'{\n  "printers": [...],\n  "spools": [...],\n  "projects": [...]\n}'}
         value={raw}
         onChange={(e) => { setRaw(e.target.value); setPreview(null); setError(''); }}
       />
@@ -360,17 +427,24 @@ function ImportTab() {
       {preview && (
         <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
           <p className="font-semibold text-blue-700 dark:text-blue-300">
-            Pronto para importar: {preview.printers.length} impressora(s) · {preview.spools.length} bobina(s)
+            Pronto para importar: {preview.printers.length} impressora(s) · {preview.spools.length} bobina(s) · {preview.projects.length} projeto(s)
           </p>
+
+          {preview.warnings?.length > 0 && (
+            <div className="rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-500/10">
+              <p className="mb-1 text-xs font-semibold text-amber-600">Avisos — verifique antes de confirmar:</p>
+              <ul className="space-y-0.5">
+                {preview.warnings.map((w, i) => <li key={i} className="text-xs text-amber-600">• {w}</li>)}
+              </ul>
+            </div>
+          )}
 
           {preview.printers.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Impressoras</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Impressoras</p>
               <ul className="space-y-1">
                 {preview.printers.map((p, i) => (
-                  <li key={i} className="text-sm">
-                    <b>{p.name}</b> — {p.model} · {money(p.purchasePrice)} · {p.purchaseDate}
-                  </li>
+                  <li key={i} className="text-sm"><b>{p.name}</b> — {p.model} · {money(p.purchasePrice)} · {p.purchaseDate}</li>
                 ))}
               </ul>
             </div>
@@ -378,11 +452,30 @@ function ImportTab() {
 
           {preview.spools.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Bobinas</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Bobinas</p>
               <ul className="space-y-1">
                 {preview.spools.map((s, i) => (
+                  <li key={i} className="text-sm"><b>{s.brand} {s.material}</b> {s.colorName} · {s.diameter}mm · {money(s.price)} · {s.purchaseDate}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {preview.projects.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Projetos</p>
+              <ul className="space-y-2">
+                {preview.projects.map((proj, i) => (
                   <li key={i} className="text-sm">
-                    <b>{s.brand} {s.material}</b> {s.colorName} · {s.diameter}mm · {money(s.price)} · {s.purchaseDate}
+                    <b>{proj.name}</b>
+                    <ul className="ml-3 mt-0.5 space-y-0.5">
+                      {(proj.parts || []).map((part, j) => (
+                        <li key={j} className="text-xs text-slate-500">
+                          {part.name} · {part.resolvedPrinterName} · {part.estMinutes}min ·{' '}
+                          {part.slots.map((s) => `${s.colorName || s.material} ${s.gramsPiece}g`).join(', ')}
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
@@ -399,7 +492,7 @@ function ImportTab() {
       )}
 
       <p className="text-xs text-slate-400">
-        As despesas de compra das bobinas são lançadas automaticamente no Financeiro. As impressoras recebem a agenda de manutenção padrão.
+        Bobinas: despesas lançadas no Financeiro · Impressoras: agenda de manutenção criada · Projetos: bobinas e impressora resolvidas pelo nome automaticamente
       </p>
     </div>
   );
