@@ -77,3 +77,27 @@ O Thiago manda fotos/prints e pedidos em português; o trabalho é editar/adicio
 funcionalidades no sistema. Sempre: implementar → `npm run build` para validar →
 commit com mensagem clara → push para a branch de trabalho (a Vercel publica sozinha).
 Responder em português.
+
+Além do software, o Thiago também pede ajuda com **fatiamento e qualidade no Bambu Studio**
+(precificação depende do tempo/gramas que o slicer mostra) e com **precificação de peças**
+(usar custo real das bobinas Esun ~R$0,11/g, NÃO o "custo" genérico do Bambu Studio).
+
+## Perfil de impressão de referência (Bambu Studio)
+
+Impressora **Bambu Lab A1** · bico **0.4mm** · fluxo padrão. Perfil-base que o Thiago usa:
+**0.08mm Extra Fine @BBL A1** (ajusta a altura conforme a peça). Configuração atual:
+
+- **Qualidade**: altura camada 0,08mm (1ª camada 0,2); largura linha 0,42 (parede interna 0,45);
+  ajuste de arco ON; compensação pé de elefante 0,075; gerador de parede Clássico;
+  engomar/ironing **OFF**.
+- **Paredes**: 2 loops; ordem interno/externo; "uma parede nas superfícies superiores" ON.
+- **Topo**: 100%, padrão **Retilíneo**, 9 camadas, casca 0,8mm. **Base**: 100%, **Monotônico**, 7 camadas.
+- **Preenchimento**: 15%, Retilíneo, 45°.
+- **Velocidade**: parede externa 200, interna 350, preench. 450, sólido 350; viagem 700;
+  saliência 60/30/10/10/10 mm/s.
+- **Suporte**: desabilitado por padrão (tipo árvore/auto quando liga); dist. Z 0,08; brim Automático 5mm.
+- **Torre de purga**: ON (35mm) — necessária para multicolor com AMS.
+
+Costura/Z-seam: em cilindros com aletas a costura repete por contorno — usar Aligned/Rear,
+ativar scarf ("cachecol"), aumentar degraus da costura; em último caso, lixar.
+Superfície superior feia: trocar topo de Retilíneo → **Monotônico** e/ou ativar **ironing**.
