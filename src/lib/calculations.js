@@ -142,8 +142,17 @@ export const projectCosts = (project, ctx, { real = false } = {}) => {
     ? (project?.failures || []).reduce((a, f) => a + (Number(f.cost) || 0), 0)
     : 0;
 
+  // Reserva para falhas (estimado): % aplicado sobre o que realmente se perde numa
+  // impressão falha — filamento + energia + máquina. No real, usa as falhas registradas.
+  const failureRate =
+    budget.failureRate != null && budget.failureRate !== ''
+      ? Number(budget.failureRate)
+      : Number(settings.failureRatePct) || 0;
+  const productionBase = filamentPiece + filamentPurge + energy + machine;
+  const failureReserve = real ? 0 : productionBase * (failureRate / 100);
+
   const total =
-    filamentPiece + filamentPurge + energy + machine + labor + finishing + packaging + shipping + post.total + failures;
+    filamentPiece + filamentPurge + energy + machine + labor + finishing + packaging + shipping + post.total + failures + failureReserve;
 
   return {
     filamentPiece,
@@ -158,6 +167,8 @@ export const projectCosts = (project, ctx, { real = false } = {}) => {
     post: post.total,
     postMinutes: post.minutes,
     failures,
+    failureRate,
+    failureReserve,
     total,
     perPart,
   };

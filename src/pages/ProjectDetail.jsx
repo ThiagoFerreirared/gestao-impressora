@@ -623,6 +623,7 @@ function BudgetTab({ project, estimated, real }) {
     laborFixed: String(budget.laborFixed ?? ''),
     packagingCost: String(budget.packagingCost ?? ''),
     shippingCost: String(budget.shippingCost ?? ''),
+    failureRate: String(budget.failureRate ?? settings.failureRatePct ?? 10),
     marginSale: String(budget.margins?.sale ?? settings.margins.sale),
     marginResale: String(budget.margins?.resale ?? settings.margins.resale),
     marginWholesale: String(budget.margins?.wholesale ?? settings.margins.wholesale),
@@ -643,6 +644,7 @@ function BudgetTab({ project, estimated, real }) {
       laborFixed: toNum(form.laborFixed),
       packagingCost: toNum(form.packagingCost),
       shippingCost: toNum(form.shippingCost),
+      failureRate: toNum(form.failureRate),
       margins: {
         sale: toNum(form.marginSale),
         resale: toNum(form.marginResale),
@@ -689,7 +691,7 @@ function BudgetTab({ project, estimated, real }) {
     ['Embalagem', estimated.packaging, real.packaging],
     ['Frete', estimated.shipping, real.shipping],
     ['Pós-processamento', estimated.post, real.post],
-    ['Falhas', 0, real.failures],
+    [`Reserva p/ falhas (${pct(estimated.failureRate)})`, estimated.failureReserve, real.failures],
   ];
 
   return (
@@ -764,6 +766,8 @@ function BudgetTab({ project, estimated, real }) {
             )}
             <Input label="Embalagem (R$)" name="packagingCost" inputMode="decimal" value={form.packagingCost} onChange={set} />
             <Input label="Frete (R$, opcional)" name="shippingCost" inputMode="decimal" value={form.shippingCost} onChange={set} />
+            <Input label="Reserva p/ falhas (%)" name="failureRate" inputMode="decimal" value={form.failureRate} onChange={set}
+              hint="Sobre filamento + energia + máquina" />
           </FormGrid>
 
           <div>

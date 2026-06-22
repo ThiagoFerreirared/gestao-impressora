@@ -92,6 +92,7 @@ export default function Projects() {
         finishing: [],
         packagingCost: 0,
         shippingCost: 0,
+        failureRate: settings.failureRatePct ?? 10,
         margins: { ...settings.margins },
         promoDiscount: 0,
         manualPrice: null,

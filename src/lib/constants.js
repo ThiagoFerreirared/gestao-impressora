@@ -247,6 +247,7 @@ export const DEFAULT_SETTINGS = {
   printerWattsDefault: 400, // W (Bambu Lab A1: pico ~350-400W)
   margins: { sale: 50, resale: 35, wholesale: 25 }, // %
   laborRate: 25, // R$/hora
+  failureRatePct: 10, // % reserva para impressões que falham (sobre filamento+energia+máquina)
   lowStockDefault: 100, // g
   customMaterials: [],
   customBrands: [],

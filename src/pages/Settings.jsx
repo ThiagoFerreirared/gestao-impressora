@@ -56,6 +56,7 @@ function GeneralTab() {
     marginResale: String(settings.margins?.resale ?? 35),
     marginWholesale: String(settings.margins?.wholesale ?? 25),
     laborRate: String(settings.laborRate ?? ''),
+    failureRatePct: String(settings.failureRatePct ?? 10),
     lowStockDefault: String(settings.lowStockDefault ?? 100),
   });
 
@@ -72,6 +73,7 @@ function GeneralTab() {
         wholesale: toNum(form.marginWholesale),
       },
       laborRate: toNum(form.laborRate),
+      failureRatePct: toNum(form.failureRatePct),
       lowStockDefault: toNum(form.lowStockDefault) || 100,
     });
     toast('Configurações salvas.');
@@ -87,6 +89,8 @@ function GeneralTab() {
           hint="Padrão 400W (A1 com mesa aquecida). Pode ser sobrescrito por impressora" />
         <Input label="Mão de obra (R$/hora)" name="laborRate" inputMode="decimal" value={form.laborRate} onChange={set}
           hint="Usada no orçamento e nas etapas de pós-processamento" />
+        <Input label="Reserva para falhas (%)" name="failureRatePct" inputMode="decimal" value={form.failureRatePct} onChange={set}
+          hint="Acréscimo no custo p/ cobrir impressões que falham — aplicado sobre filamento + energia + máquina" />
         <Input label="Margem padrão — venda (%)" name="marginSale" inputMode="decimal" value={form.marginSale} onChange={set} />
         <Input label="Margem padrão — revenda (%)" name="marginResale" inputMode="decimal" value={form.marginResale} onChange={set} />
         <Input label="Margem padrão — atacado (%)" name="marginWholesale" inputMode="decimal" value={form.marginWholesale} onChange={set} />
@@ -389,6 +393,7 @@ function ImportTab() {
             finishing: (bgt.finishing || []).map((f) => ({ desc: f.desc || '', value: Number(f.value) || 0 })),
             packagingCost: Number(bgt.packagingCost) || 0,
             shippingCost: Number(bgt.shippingCost) || 0,
+            failureRate: Number(bgt.failureRate ?? settings.failureRatePct ?? 10),
             margins: {
               sale: Number(bgt.margins?.sale ?? settings.margins.sale),
               resale: Number(bgt.margins?.resale ?? settings.margins.resale),
