@@ -222,6 +222,15 @@ export const TAG_COLORS = [
   { name: 'gray', class: 'badge-gray' },
 ];
 
+// ─── Canais de venda (comissão de marketplace) ───
+export const SALE_CHANNELS = [
+  { name: 'Direto', commissionPct: 0, fixedFee: 0 },
+  { name: 'Shopee', commissionPct: 14, fixedFee: 20 },
+  { name: 'Mercado Livre Clássico', commissionPct: 12, fixedFee: 0 },
+  { name: 'Mercado Livre Premium', commissionPct: 17, fixedFee: 0 },
+  { name: 'Outro', commissionPct: 0, fixedFee: 0 },
+];
+
 // ─── Checklists padrão ───
 export const DEFAULT_PRE_CHECKLIST = [
   'Placa de impressão limpa',

@@ -183,6 +183,14 @@ export const suggestedPrice = (cost, marginPct) => {
   return (Number(cost) || 0) / (1 - m);
 };
 
+// Preço a anunciar no canal (marketplace) pra que, após comissão % + taxa fixa,
+// o valor líquido recebido seja igual ao preço-base (ex.: o preço de venda direto).
+export const channelPrice = (basePrice, commissionPct, fixedFee = 0) => {
+  const c = (Number(commissionPct) || 0) / 100;
+  if (c >= 1) return 0;
+  return ((Number(basePrice) || 0) + (Number(fixedFee) || 0)) / (1 - c);
+};
+
 export const projectPrices = (project, ctx) => {
   const costs = projectCosts(project, ctx, { real: false });
   const budget = project?.budget || {};
@@ -197,7 +205,9 @@ export const projectPrices = (project, ctx) => {
   const promo = budget.promoDiscount
     ? finalPrice * (1 - (Number(budget.promoDiscount) || 0) / 100)
     : null;
-  return { costs, margins, sale, resale, wholesale, manual, finalPrice, promo };
+  const channel = budget.channel || null;
+  const channelListPrice = channel ? channelPrice(finalPrice, channel.commissionPct, channel.fixedFee) : null;
+  return { costs, margins, sale, resale, wholesale, manual, finalPrice, promo, channel, channelListPrice };
 };
 
 // ─── Falhas ───

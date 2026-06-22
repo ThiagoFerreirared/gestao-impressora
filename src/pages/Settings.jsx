@@ -402,6 +402,11 @@ function ImportTab() {
             promoDiscount: Number(bgt.promoDiscount) || 0,
             manualPrice: bgt.manualPrice != null ? Number(bgt.manualPrice) : null,
             priceHistory: [], estimateSnapshot: null,
+            channel: {
+              name: bgt.channel?.name || 'Direto',
+              commissionPct: Number(bgt.channel?.commissionPct) || 0,
+              fixedFee: Number(bgt.channel?.fixedFee) || 0,
+            },
           },
         }, proj.name);
         added++;

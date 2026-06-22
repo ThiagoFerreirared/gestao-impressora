@@ -28,9 +28,10 @@ import {
   PROJECT_STATUS,
   PROJECT_STATUS_FLOW,
   QUALITY,
+  SALE_CHANNELS,
   TAG_COLORS,
 } from '../lib/constants';
-import { partFilament, projectCosts, projectPrices } from '../lib/calculations';
+import { channelPrice, partFilament, projectCosts, projectPrices } from '../lib/calculations';
 import { clean, duplicateProject, saveAsTemplate } from '../lib/ops';
 import {
   dateBR,
@@ -630,11 +631,24 @@ function BudgetTab({ project, estimated, real }) {
     promoDiscount: String(budget.promoDiscount ?? ''),
     manualPrice: budget.manualPrice ?? '',
     finishing: (budget.finishing || []).map((f) => ({ desc: f.desc, value: String(f.value) })),
+    channelName: budget.channel?.name || 'Direto',
+    channelCommissionPct: String(budget.channel?.commissionPct ?? 0),
+    channelFixedFee: String(budget.channel?.fixedFee ?? 0),
   });
   const [priceModal, setPriceModal] = useState(false);
   const [priceForm, setPriceForm] = useState({ price: '', reason: '' });
 
   const set = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const setChannel = (name) => {
+    const preset = SALE_CHANNELS.find((c) => c.name === name);
+    setForm((f) => ({
+      ...f,
+      channelName: name,
+      channelCommissionPct: preset ? String(preset.commissionPct) : f.channelCommissionPct,
+      channelFixedFee: preset ? String(preset.fixedFee) : f.channelFixedFee,
+    }));
+  };
 
   const saveBudget = async () => {
     const newBudget = {
@@ -653,6 +667,11 @@ function BudgetTab({ project, estimated, real }) {
       promoDiscount: toNum(form.promoDiscount),
       manualPrice: form.manualPrice === '' ? null : toNum(form.manualPrice),
       finishing: form.finishing.filter((f) => f.desc.trim()).map((f) => ({ desc: f.desc.trim(), value: toNum(f.value) })),
+      channel: {
+        name: form.channelName,
+        commissionPct: toNum(form.channelCommissionPct),
+        fixedFee: toNum(form.channelFixedFee),
+      },
     };
     await api.update('projects', project.id, { budget: clean(newBudget) }, `${project.name} — orçamento`);
     toast('Orçamento salvo.');
@@ -832,6 +851,26 @@ function BudgetTab({ project, estimated, real }) {
               <div className="text-right">
                 <p className="label !mb-0">Promocional (−{pct(toNum(form.promoDiscount))})</p>
                 <p className="text-lg font-bold text-amber-500">{money(prices.promo)}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="label !mb-1">Canal de venda (comissão de marketplace)</p>
+            <FormGrid cols={3}>
+              <Select label="Canal" value={form.channelName} onChange={(e) => setChannel(e.target.value)}
+                options={SALE_CHANNELS.map((c) => ({ value: c.name, label: c.name }))} />
+              <Input label="Comissão (%)" name="channelCommissionPct" inputMode="decimal" value={form.channelCommissionPct} onChange={set} />
+              <Input label="Taxa fixa (R$)" name="channelFixedFee" inputMode="decimal" value={form.channelFixedFee} onChange={set} />
+            </FormGrid>
+            {toNum(form.channelCommissionPct) > 0 && (
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">
+                Anunciar por{' '}
+                <b className="text-blue-500">
+                  {money(channelPrice(prices.finalPrice, toNum(form.channelCommissionPct), toNum(form.channelFixedFee)))}
+                </b>{' '}
+                no {form.channelName} pra receber líquido {money(prices.finalPrice)} (após {pct(toNum(form.channelCommissionPct))}
+                {toNum(form.channelFixedFee) > 0 ? ` + ${money(toNum(form.channelFixedFee))} fixo` : ''} de comissão).
               </div>
             )}
           </div>

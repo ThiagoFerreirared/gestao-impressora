@@ -98,6 +98,7 @@ export default function Projects() {
         manualPrice: null,
         priceHistory: [],
         estimateSnapshot: null,
+        channel: { name: 'Direto', commissionPct: 0, fixedFee: 0 },
       },
     };
     try {
