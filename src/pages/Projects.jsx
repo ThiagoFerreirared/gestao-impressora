@@ -10,7 +10,7 @@ import StatusBadge from '../components/ui/Badge';
 import { Checkbox, FormGrid, Input, Select, Textarea } from '../components/ui/Field';
 import SearchSelect from '../components/ui/SearchSelect';
 import { PRIORITIES, PROJECT_CATEGORIES, PROJECT_STATUS, TAG_COLORS } from '../lib/constants';
-import { projectCosts } from '../lib/calculations';
+import { marginsForCategory, projectCosts } from '../lib/calculations';
 import { duplicateProject, projectFromTemplate } from '../lib/ops';
 import { dateBR, money, todayInput } from '../lib/format';
 
@@ -93,7 +93,7 @@ export default function Projects() {
         packagingCost: 0,
         shippingCost: 0,
         failureRate: settings.failureRatePct ?? 10,
-        margins: { ...settings.margins },
+        margins: marginsForCategory(form.category, settings.margins),
         promoDiscount: 0,
         manualPrice: null,
         priceHistory: [],

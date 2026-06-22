@@ -7,6 +7,7 @@ import { FormGrid, Input, Textarea } from '../components/ui/Field';
 import { exportJSON } from '../lib/export';
 import { dateTimeBR, money, toNum, uid } from '../lib/format';
 import { MAINTENANCE_TYPES } from '../lib/constants';
+import { marginsForCategory } from '../lib/calculations';
 import { addSpoolWithExpense } from '../lib/ops';
 
 export default function Settings() {
@@ -373,6 +374,7 @@ function ImportTab() {
         }));
 
         const bgt = proj.budget || {};
+        const categoryMargins = marginsForCategory(proj.category || 'Personalizado', settings.margins);
         await api.add('projects', {
           name: proj.name || 'Projeto importado',
           clientId: proj.clientId || '',
@@ -395,9 +397,9 @@ function ImportTab() {
             shippingCost: Number(bgt.shippingCost) || 0,
             failureRate: Number(bgt.failureRate ?? settings.failureRatePct ?? 10),
             margins: {
-              sale: Number(bgt.margins?.sale ?? settings.margins.sale),
-              resale: Number(bgt.margins?.resale ?? settings.margins.resale),
-              wholesale: Number(bgt.margins?.wholesale ?? settings.margins.wholesale),
+              sale: Number(bgt.margins?.sale ?? categoryMargins.sale),
+              resale: Number(bgt.margins?.resale ?? categoryMargins.resale),
+              wholesale: Number(bgt.margins?.wholesale ?? categoryMargins.wholesale),
             },
             promoDiscount: Number(bgt.promoDiscount) || 0,
             manualPrice: bgt.manualPrice != null ? Number(bgt.manualPrice) : null,

@@ -1,4 +1,4 @@
-import { ACTIVE_PROJECT_STATUSES } from './constants';
+import { ACTIVE_PROJECT_STATUSES, CATEGORY_MARGIN_HINTS } from './constants';
 
 // ──────────────────────────────────────────────────────────────
 // REGRAS DE NEGÓCIO — todos os cálculos de custo ficam aqui.
@@ -175,6 +175,14 @@ export const projectCosts = (project, ctx, { real = false } = {}) => {
 };
 
 // ─── Precificação ───
+
+// Margens de partida (venda/revenda/atacado) sugeridas pela categoria do projeto.
+// Revenda e atacado mantêm a mesma distância (−15/−25) usada nos padrões globais.
+export const marginsForCategory = (category, fallback) => {
+  const sale = CATEGORY_MARGIN_HINTS[category];
+  if (sale == null) return fallback;
+  return { sale, resale: Math.max(sale - 15, 0), wholesale: Math.max(sale - 25, 0) };
+};
 
 // Preço sugerido = custo ÷ (1 − margem%)  (markup sobre o preço de venda)
 export const suggestedPrice = (cost, marginPct) => {

@@ -74,6 +74,21 @@ export const PROJECT_CATEGORIES = [
   'Personalizado',
 ];
 
+// Margem de venda sugerida por categoria (ponto de partida ao criar o projeto —
+// sempre editável no orçamento). Categorias com baixa comparação de preço
+// (peças únicas/personalizadas) sustentam margem mais alta; peças técnicas e
+// de reposição competem com alternativa genérica/OEM, margem mais conservadora.
+export const CATEGORY_MARGIN_HINTS = {
+  'Action figure': 60,
+  'Kit': 58,
+  'Decoração': 55,
+  'Personalizado': 58,
+  'Peça técnica': 42,
+  'Reposição': 35,
+  'Teste': 50,
+  'Calibração': 50,
+};
+
 export const PRIORITIES = {
   baixa: { label: 'Baixa', badge: 'badge-gray', order: 3 },
   normal: { label: 'Normal', badge: 'badge-blue', order: 2 },
