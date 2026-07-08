@@ -59,6 +59,8 @@ function GeneralTab() {
     laborRate: String(settings.laborRate ?? ''),
     failureRatePct: String(settings.failureRatePct ?? 10),
     lowStockDefault: String(settings.lowStockDefault ?? 100),
+    taxRatePct: String(settings.taxRatePct ?? 0),
+    lowStockProductDefault: String(settings.lowStockProductDefault ?? 3),
   });
 
   const set = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -76,6 +78,8 @@ function GeneralTab() {
       laborRate: toNum(form.laborRate),
       failureRatePct: toNum(form.failureRatePct),
       lowStockDefault: toNum(form.lowStockDefault) || 100,
+      taxRatePct: toNum(form.taxRatePct),
+      lowStockProductDefault: toNum(form.lowStockProductDefault) || 3,
     });
     toast('Configurações salvas.');
   };
@@ -97,6 +101,10 @@ function GeneralTab() {
         <Input label="Margem padrão — atacado (%)" name="marginWholesale" inputMode="decimal" value={form.marginWholesale} onChange={set} />
         <Input label="Alerta de estoque baixo padrão (g)" name="lowStockDefault" inputMode="numeric" value={form.lowStockDefault} onChange={set}
           hint="Aplicado a novas bobinas (cada bobina pode ter o seu)" />
+        <Input label="Imposto padrão — IVA/Simples (%)" name="taxRatePct" inputMode="decimal" value={form.taxRatePct} onChange={set}
+          hint="Sugerido automaticamente no assistente de Vendas (editável por venda)" />
+        <Input label="Alerta de estoque baixo padrão — produtos (un.)" name="lowStockProductDefault" inputMode="numeric" value={form.lowStockProductDefault} onChange={set}
+          hint="Aplicado a novos produtos cadastrados em Produtos & Estoque" />
       </FormGrid>
       <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
         Exemplo com os valores atuais: 1h de impressão a {form.printerWattsDefault || 400}W ×{' '}

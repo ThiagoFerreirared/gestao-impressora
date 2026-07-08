@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AtSign, Mail, MapPin, Pencil, Phone, Plus, Trash2, Users } from 'lucide-react';
+import { AtSign, Building2, FileText, Mail, MapPin, Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/ui/Modal';
@@ -11,10 +11,10 @@ import { ORDER_STATUS, PAYMENT_STATUS } from '../lib/constants';
 import { orderTotal } from '../lib/ops';
 import { dateBR, money } from '../lib/format';
 
-const EMPTY = { name: '', phone: '', whatsapp: '', instagram: '', email: '', address: '', notes: '' };
+const EMPTY = { name: '', company: '', document: '', phone: '', whatsapp: '', instagram: '', email: '', address: '', notes: '' };
 
 export default function Clients() {
-  const { clients, orders, api } = useData();
+  const { clients, orders, productSales, api } = useData();
   const toast = useToast();
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -25,12 +25,20 @@ export default function Clients() {
     () =>
       clients.map((c) => {
         const clientOrders = orders.filter((o) => o.clientId === c.id && o.status !== 'cancelado');
-        const totalPaid = clientOrders
+        const totalOrders = clientOrders
           .filter((o) => o.paymentStatus === 'pago')
           .reduce((a, o) => a + orderTotal(o), 0);
-        return { ...c, _orders: clientOrders, _count: clientOrders.length, _total: totalPaid };
+        const clientSales = productSales.filter((s) => s.clientId === c.id);
+        const totalSales = clientSales.reduce((a, s) => a + (Number(s.total) || 0), 0);
+        return {
+          ...c,
+          _orders: clientOrders,
+          _sales: clientSales,
+          _count: clientOrders.length + clientSales.length,
+          _total: totalOrders + totalSales,
+        };
       }),
-    [clients, orders]
+    [clients, orders, productSales]
   );
 
   const set = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -53,7 +61,7 @@ export default function Clients() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Clientes</h1>
-          <p className="muted text-sm">Cadastro, histórico de pedidos e valor total comprado</p>
+          <p className="muted text-sm">Cadastro, histórico de pedidos/vendas e valor total comprado</p>
         </div>
         <button className="btn-primary" onClick={() => { setForm(EMPTY); setModal({}); }}>
           <Plus size={16} /> Novo cliente
@@ -62,7 +70,7 @@ export default function Clients() {
 
       <DataTable
         data={rows}
-        searchKeys={['name', 'phone', 'whatsapp', 'email', 'instagram']}
+        searchKeys={['name', 'company', 'document', 'phone', 'whatsapp', 'email', 'instagram']}
         searchPlaceholder="Buscar cliente..."
         columns={[
           {
@@ -73,6 +81,7 @@ export default function Clients() {
               <div>
                 <p className="font-semibold text-slate-800 dark:text-slate-100">{r.name}</p>
                 <p className="flex flex-wrap gap-x-3 text-xs text-slate-400">
+                  {r.company && <span className="inline-flex items-center gap-1"><Building2 size={11} /> {r.company}</span>}
                   {r.whatsapp && <span className="inline-flex items-center gap-1"><Phone size={11} /> {r.whatsapp}</span>}
                   {r.instagram && <span className="inline-flex items-center gap-1"><AtSign size={11} /> {r.instagram}</span>}
                   {r.email && <span className="inline-flex items-center gap-1"><Mail size={11} /> {r.email}</span>}
@@ -80,7 +89,7 @@ export default function Clients() {
               </div>
             ),
           },
-          { key: '_count', label: 'Pedidos', sortValue: (r) => r._count, render: (r) => r._count },
+          { key: '_count', label: 'Pedidos/Vendas', sortValue: (r) => r._count, render: (r) => r._count },
           {
             key: '_total',
             label: 'Total comprado',
@@ -112,6 +121,8 @@ export default function Clients() {
       >
         <FormGrid cols={2}>
           <Input label="Nome *" name="name" value={form.name} onChange={set} />
+          <Input label="Nome da Empresa" name="company" value={form.company} onChange={set} />
+          <Input label="CPF/CNPJ" name="document" value={form.document} onChange={set} placeholder="000.000.000-00" />
           <Input label="Telefone" name="phone" value={form.phone} onChange={set} />
           <Input label="WhatsApp" name="whatsapp" value={form.whatsapp} onChange={set} placeholder="(11) 99999-9999" />
           <Input label="Instagram" name="instagram" value={form.instagram} onChange={set} placeholder="@usuario" />
@@ -128,6 +139,8 @@ export default function Clients() {
         {detail && (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+              {detail.company && <span className="inline-flex items-center gap-1.5"><Building2 size={13} className="text-slate-400" /> {detail.company}</span>}
+              {detail.document && <span className="inline-flex items-center gap-1.5"><FileText size={13} className="text-slate-400" /> {detail.document}</span>}
               {detail.phone && <span className="inline-flex items-center gap-1.5"><Phone size={13} className="text-slate-400" /> {detail.phone}</span>}
               {detail.whatsapp && <span className="inline-flex items-center gap-1.5"><Phone size={13} className="text-green-500" /> {detail.whatsapp}</span>}
               {detail.instagram && <span className="inline-flex items-center gap-1.5"><AtSign size={13} className="text-pink-500" /> {detail.instagram}</span>}
@@ -136,7 +149,7 @@ export default function Clients() {
             </div>
             {detail.notes && <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">{detail.notes}</p>}
             <div>
-              <h4 className="section-title mb-2">Histórico de pedidos ({detail._count})</h4>
+              <h4 className="section-title mb-2">Pedidos sob medida ({detail._orders.length})</h4>
               {detail._orders.length === 0 ? (
                 <p className="text-sm text-slate-400">Nenhum pedido ainda.</p>
               ) : (
@@ -155,8 +168,28 @@ export default function Clients() {
                   </tbody>
                 </table>
               )}
+            </div>
+            <div>
+              <h4 className="section-title mb-2">Vendas de produto ({detail._sales.length})</h4>
+              {detail._sales.length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhuma venda ainda.</p>
+              ) : (
+                <table className="table-base">
+                  <thead><tr><th>Data</th><th>Produto</th><th>Qtd</th><th className="text-right">Valor</th></tr></thead>
+                  <tbody>
+                    {detail._sales.map((s) => (
+                      <tr key={s.id}>
+                        <td>{dateBR(s.saleDate)}</td>
+                        <td className="font-semibold">{s.productName}</td>
+                        <td>{s.qty}</td>
+                        <td className="text-right font-semibold">{money(s.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               <p className="mt-2 text-right text-sm">
-                Total pago: <b className="text-green-500">{money(detail._total)}</b>
+                Total comprado: <b className="text-green-500">{money(detail._total)}</b>
               </p>
             </div>
           </div>
@@ -167,7 +200,7 @@ export default function Clients() {
         open={!!confirm}
         onClose={() => setConfirm(null)}
         title="Excluir cliente"
-        message={`Excluir "${confirm?.name}"? Os pedidos dele permanecem no sistema.`}
+        message={`Excluir "${confirm?.name}"? Os pedidos/vendas dele permanecem no sistema.`}
         onConfirm={async () => {
           await api.remove('clients', confirm.id, confirm.name);
           toast('Cliente excluído.');

@@ -33,11 +33,27 @@ npm run build    # build de produção — SEMPRE rodar antes de commitar mudan�
 - `src/lib/seed.js` — primeira entrada do usuário cria settings + 20 materiais padrão.
 - `src/lib/format.js` — `money()`, `grams()`, `dateBR()`, `toNum()`, `toDate()` etc.
 - `src/lib/constants.js` — materiais, status, motivos de falha, tipos de manutenção, defaults.
-- `src/contexts/DataContext.jsx` — assina TODAS as 14 coleções do Firestore em tempo real;
-  expõe `printersById`, `spoolsById`, `projectsById`, `clientsById`, `api`.
-- `src/pages/` — 13 módulos: Dashboard, Impressoras, Filamentos, Projetos (+ ProjectDetail
-  com 5 abas), Produção, Pedidos, Clientes, Financeiro, Manutenção, Biblioteca,
-  Relatórios, Configurações, Login.
+- `src/contexts/DataContext.jsx` — assina TODAS as 16 coleções do Firestore em tempo real;
+  expõe `printersById`, `spoolsById`, `projectsById`, `clientsById`, `productsById`, `api`.
+- `src/pages/` — 15 módulos: Dashboard, Impressoras, Filamentos, Projetos (+ ProjectDetail
+  com 5 abas), Produção, Produtos, Vendas, Pedidos, Clientes, Financeiro, Manutenção,
+  Biblioteca, Relatórios, Configurações, Login.
+
+### Produtos & Vendas × Projetos & Pedidos
+
+Duas trilhas paralelas para "dinheiro entrando", propositalmente separadas:
+
+- **Projetos → Pedidos**: encomenda sob medida, peça única, com partes/slots do AMS,
+  orçamento estimado × real, específica de um cliente.
+- **Produtos → Vendas**: receita reutilizável (ex.: chaveiro) produzida **em lote** e
+  guardada em estoque (`products.stockQty`), vendida aos poucos para clientes diferentes
+  através do assistente de 5 passos em `Sales.jsx`. "Produzir lote" (`ops.produceStock`)
+  desconta o filamento de verdade das bobinas ao dar entrada no estoque — é o único
+  ponto de contato entre os dois módulos. `registerSale` desconta do estoque do produto
+  e lança a receita automaticamente em `transactions` (Financeiro).
+- Preços sugeridos de produto usam 4 níveis fixos (`PRICE_TIERS` em `constants.js`:
+  Competitivo 25%/Padrão 40%/Premium 60%/Luxo 80%), diferente da margem única usada
+  em Projetos/Pedidos (`settings.margins`). Ambos os sistemas de margem coexistem.
 - `src/components/ui/` — Modal, DataTable (busca/filtro/ordenação), SearchSelect,
   Field (Input/Select/Textarea/FormGrid), Badge, Tabs, ConfirmDialog.
 - `src/components/domain/SlotEditor.jsx` — editor de slots AMS (até 4 por parte,
