@@ -22,6 +22,8 @@ const COLLECTIONS = [
   'suppliers',
   'templates',
   'packagingItems',
+  'products',
+  'productSales',
 ];
 
 const DataContext = createContext(null);
@@ -84,6 +86,7 @@ export function DataProvider({ children }) {
     const projects = data.projects || [];
     const clients = data.clients || [];
     const materials = data.materials || [];
+    const products = data.products || [];
     const byId = (arr) => Object.fromEntries(arr.map((x) => [x.id, x]));
 
     return {
@@ -95,6 +98,8 @@ export function DataProvider({ children }) {
       spools,
       projects,
       clients,
+      products,
+      productSales: data.productSales || [],
       orders: data.orders || [],
       transactions: data.transactions || [],
       maintenanceRecords: data.maintenanceRecords || [],
@@ -109,6 +114,7 @@ export function DataProvider({ children }) {
       spoolsById: byId(spools),
       projectsById: byId(projects),
       clientsById: byId(clients),
+      productsById: byId(products),
       materialNames: [
         ...materials.map((m) => m.name),
         ...(settings.customMaterials || []),

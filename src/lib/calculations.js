@@ -1,4 +1,4 @@
-import { ACTIVE_PROJECT_STATUSES, CATEGORY_MARGIN_HINTS } from './constants';
+import { ACTIVE_PROJECT_STATUSES, CATEGORY_MARGIN_HINTS, PRICE_TIERS } from './constants';
 
 // ──────────────────────────────────────────────────────────────
 // REGRAS DE NEGÓCIO — todos os cálculos de custo ficam aqui.
@@ -283,6 +283,99 @@ export const printStats = (projects = []) => {
     failed += (p.failures || []).length;
   }
   return { completed, failed };
+};
+
+// ─── Produtos (catálogo em lote — receita por unidade + estoque) ───
+
+// Status calculado do estoque do produto (mesmo espírito de spoolStatus)
+export const productStockStatus = (product) => {
+  const qty = Number(product?.stockQty) || 0;
+  const threshold = Number(product?.lowStockThreshold) || 0;
+  if (qty <= 0) return 'sem_estoque';
+  if (threshold > 0 && qty <= threshold) return 'estoque_baixo';
+  return 'em_estoque';
+};
+
+// Custo de filamento de 1 unidade do produto (slots: [{spoolId, grams}], mesmo padrão dos slots de projeto — suporta multicor)
+export const productFilamentCost = (product, spoolsById = {}) =>
+  (product?.slots || []).reduce(
+    (a, s) => a + (Number(s.grams) || 0) * costPerGram(spoolsById[s.spoolId]),
+    0
+  );
+
+export const productFilamentGrams = (product) =>
+  (product?.slots || []).reduce((a, s) => a + (Number(s.grams) || 0), 0);
+
+// Custo total por unidade: filamento + energia + depreciação da impressora (tempo de
+// impressão ÷ quantidade que sai da mesma impressão) + mão de obra + embalagem + entrega + personalizados
+export const productUnitCost = (product, ctx = {}) => {
+  const { spoolsById = {}, printersById = {}, settings = {} } = ctx;
+  const filament = productFilamentCost(product, spoolsById);
+  const minutes = Number(product?.printMinutes) || 0;
+  const printer = printersById[product?.printerId];
+  const watts = Number(printer?.watts) || Number(settings.printerWattsDefault) || 0;
+  const energy = energyCost(minutes, watts, settings.energyTariff);
+  const machine = machineCost(minutes, printer);
+  const labor = Number(product?.laborCost) || 0;
+  const packaging = Number(product?.packagingCost) || 0;
+  const delivery = Number(product?.deliveryCost) || 0;
+  const custom = (product?.customCosts || []).reduce((a, c) => a + (Number(c.value) || 0), 0);
+  const total = filament + energy + machine + labor + packaging + delivery + custom;
+  return { filament, energy, machine, labor, packaging, delivery, custom, total };
+};
+
+// Os 4 níveis de preço sugeridos (Competitivo/Padrão/Premium/Luxo) a partir do custo
+export const productPriceTiers = (cost, tiers = PRICE_TIERS) =>
+  tiers.map((t) => {
+    const salePrice = suggestedPrice(cost, t.marginPct);
+    return { ...t, salePrice, profit: salePrice - cost };
+  });
+
+// Aplica imposto (IVA/Simples) sobre um preço.
+// included=true  → o preço informado já inclui o imposto (o imposto é extraído dele)
+// included=false → o preço informado é sem imposto (o imposto é somado por fora)
+export const applyTax = (price, taxRatePct, included) => {
+  const rate = (Number(taxRatePct) || 0) / 100;
+  const value = Number(price) || 0;
+  if (included) {
+    const net = rate > 0 ? value / (1 + rate) : value;
+    return { net, tax: value - net, gross: value };
+  }
+  return { net: value, tax: value * rate, gross: value * (1 + rate) };
+};
+
+// Fecha o preço final de venda de um produto: custo → preço (por margem % ou valor fixo)
+// → imposto → taxas adicionais (comissão de marketplace, maquininha etc., % ou fixas)
+// fees: [{ label, type: 'pct' | 'fixed', value }]
+export const salePriceBreakdown = ({ cost, marginPct, fixedPrice, taxRatePct, taxIncluded, fees = [] }) => {
+  const rawPrice =
+    fixedPrice !== null && fixedPrice !== undefined && fixedPrice !== ''
+      ? Number(fixedPrice)
+      : suggestedPrice(cost, marginPct);
+  const { net, tax, gross } = applyTax(rawPrice, taxRatePct, taxIncluded);
+  const priceExclTax = taxIncluded ? net : rawPrice;
+  const priceInclTax = taxIncluded ? rawPrice : gross;
+  const profit = priceExclTax - (Number(cost) || 0);
+  const feesTotal = (fees || []).reduce((a, f) => {
+    if (f.type === 'fixed') return a + (Number(f.value) || 0);
+    return a + priceInclTax * ((Number(f.value) || 0) / 100);
+  }, 0);
+  return {
+    cost: Number(cost) || 0,
+    priceExclTax,
+    tax,
+    profit,
+    feesTotal,
+    finalPrice: priceInclTax + feesTotal,
+  };
+};
+
+// Métricas agregadas de vendas de produto (Dashboard/Painel de Vendas)
+export const productSalesStats = (sales = []) => {
+  const revenue = sales.reduce((a, s) => a + (Number(s.pricing?.finalPrice) || 0) * (Number(s.qty) || 1), 0);
+  const profit = sales.reduce((a, s) => a + (Number(s.pricing?.profit) || 0) * (Number(s.qty) || 1), 0);
+  const units = sales.reduce((a, s) => a + (Number(s.qty) || 1), 0);
+  return { revenue, profit, units, count: sales.length };
 };
 
 // Desperdício (purga + falhas) em gramas e R$, por período opcional

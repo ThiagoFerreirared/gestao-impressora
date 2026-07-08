@@ -246,6 +246,39 @@ export const SALE_CHANNELS = [
   { name: 'Outro', commissionPct: 0, fixedFee: 0 },
 ];
 
+// ─── Produtos (catálogo produzido em lote e vendido do estoque) ───
+// Diferente de "Projetos" (encomenda única sob medida): um Produto é uma
+// receita reutilizável (ex.: chaveiro) que você produz em lote, guarda em
+// estoque e vende aos poucos para clientes diferentes.
+export const PRODUCT_CATEGORIES = [
+  'Chaveiro',
+  'Miniatura',
+  'Action figure',
+  'Decoração',
+  'Utilidade',
+  'Personalizado',
+];
+
+// Estoque calculado (não gravado) — mesmo espírito de SPOOL_STATUS
+export const PRODUCT_STOCK_STATUS = {
+  sem_estoque: { label: 'Sem estoque', badge: 'badge-red' },
+  estoque_baixo: { label: 'Estoque baixo', badge: 'badge-yellow' },
+  em_estoque: { label: 'Em estoque', badge: 'badge-green' },
+};
+
+// Níveis de preço sugeridos no assistente de venda — margem sobre o preço de
+// venda (markup), igual ao restante do sistema. Sempre editável por produto.
+export const PRICE_TIERS = [
+  { key: 'competitivo', label: 'Competitivo', marginPct: 25, tone: 'green' },
+  { key: 'padrao', label: 'Padrão', marginPct: 40, tone: 'blue' },
+  { key: 'premium', label: 'Premium', marginPct: 60, tone: 'orange' },
+  { key: 'luxo', label: 'Luxo', marginPct: 80, tone: 'purple' },
+];
+
+// Taxas cobráveis na venda (comissão de marketplace, taxa de maquininha etc.)
+// — reaproveita o conceito de SALE_CHANNELS como sugestões rápidas.
+export const FEE_PRESETS = SALE_CHANNELS.filter((c) => c.name !== 'Direto');
+
 // ─── Checklists padrão ───
 export const DEFAULT_PRE_CHECKLIST = [
   'Placa de impressão limpa',
@@ -273,6 +306,8 @@ export const DEFAULT_SETTINGS = {
   laborRate: 25, // R$/hora
   failureRatePct: 10, // % reserva para impressões que falham (sobre filamento+energia+máquina)
   lowStockDefault: 100, // g
+  taxRatePct: 0, // % imposto (IVA/Simples) aplicado nas vendas de produto
+  lowStockProductDefault: 3, // un — alerta de estoque baixo padrão p/ produtos novos
   customMaterials: [],
   customBrands: [],
   preChecklist: DEFAULT_PRE_CHECKLIST,

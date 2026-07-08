@@ -10,6 +10,8 @@ import ProjectDetail from './pages/ProjectDetail';
 import Production from './pages/Production';
 import Clients from './pages/Clients';
 import Orders from './pages/Orders';
+import Products from './pages/Products';
+import Sales from './pages/Sales';
 import Finance from './pages/Finance';
 import Maintenance from './pages/Maintenance';
 import Library from './pages/Library';
@@ -50,6 +52,8 @@ export default function App() {
         <Route path="/producao" element={<Production />} />
         <Route path="/clientes" element={<Clients />} />
         <Route path="/pedidos" element={<Orders />} />
+        <Route path="/produtos" element={<Products />} />
+        <Route path="/vendas" element={<Sales />} />
         <Route path="/financeiro" element={<Finance />} />
         <Route path="/manutencao" element={<Maintenance />} />
         <Route path="/biblioteca" element={<Library />} />

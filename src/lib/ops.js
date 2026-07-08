@@ -399,3 +399,141 @@ export const projectFromTemplate = async (api, template) => {
   };
   return api.add('projects', data, data.name);
 };
+
+// ──────────────────────────────────────────────────────────────
+// PRODUTOS (catálogo em lote) / VENDAS
+// ──────────────────────────────────────────────────────────────
+
+// Produz um lote: soma `qty` unidades ao estoque do produto e desconta o
+// filamento correspondente (qty × gramas de cada slot da receita) das bobinas —
+// mesma lógica de "concluir impressão" dos Projetos, só que sem parte/slot individual.
+export const produceStock = async (api, product, { qty, spoolsById = {} }) => {
+  const units = Number(qty) || 0;
+  if (units <= 0) throw new Error('Quantidade produzida deve ser maior que zero.');
+
+  const batch = api.batch();
+  const date = new Date().toISOString();
+  let filamentCost = 0;
+
+  for (const slot of product.slots || []) {
+    const spool = spoolsById[slot.spoolId];
+    if (!spool) continue;
+    const grams = (Number(slot.grams) || 0) * units;
+    if (grams <= 0) continue;
+    const cost = grams * costPerGram(spool);
+    filamentCost += cost;
+    const remainingAfter = Math.max(0, (Number(spool.currentWeight) || 0) - grams);
+    const entry = {
+      id: genId(),
+      date,
+      type: 'uso',
+      projectId: '',
+      projectName: `Produto: ${product.name}`,
+      partName: `Lote de ${units} un.`,
+      grams,
+      cost,
+      remainingAfter,
+    };
+    batch.update(api.ref('spools', spool.id), {
+      currentWeight: remainingAfter,
+      usageHistory: clean([...(spool.usageHistory || []), entry]),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  const production = {
+    id: genId(),
+    date,
+    qty: units,
+    filamentCost,
+  };
+  batch.update(api.ref('products', product.id), {
+    stockQty: (Number(product.stockQty) || 0) + units,
+    productionHistory: clean([...(product.productionHistory || []), production]),
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+  logActivity(api.uid, 'produziu lote', 'products', product.name, `+${units} un. · filamento ${filamentCost.toFixed(2)}`);
+};
+
+// Ajuste manual do estoque (contagem, perda, quebra) — NÃO mexe em filamento,
+// pois não representa produção nova, só correção da contagem.
+export const adjustProductStock = async (api, product, newQty, note) => {
+  const qty = Math.max(0, Number(newQty) || 0);
+  const delta = qty - (Number(product.stockQty) || 0);
+  const entry = { id: genId(), date: new Date().toISOString(), delta, qtyAfter: qty, note: note || 'Ajuste manual' };
+  await api.update(
+    'products',
+    product.id,
+    {
+      stockQty: qty,
+      stockAdjustments: clean([...(product.stockAdjustments || []), entry]),
+    },
+    `Ajuste de estoque — ${product.name}`
+  );
+};
+
+export const saleTotal = (sale) => (Number(sale?.pricing?.finalPrice) || 0) * (Number(sale?.qty) || 1);
+
+// Registra uma venda de produto: desconta do estoque, salva o snapshot completo
+// de custo/preço usado (histórico não muda se o produto mudar depois) e lança
+// a receita no Financeiro — tudo em uma operação atômica.
+export const registerSale = async (api, { product, clientId, clientName, qty, saleDate, costs, pricing, notes }) => {
+  const units = Number(qty) || 1;
+  if (units > (Number(product.stockQty) || 0)) {
+    throw new Error('Quantidade maior que o estoque disponível.');
+  }
+
+  const batch = api.batch();
+  const saleRef = api.ref('productSales', genId());
+  const total = (Number(pricing?.finalPrice) || 0) * units;
+
+  batch.set(saleRef, {
+    productId: product.id,
+    productName: product.name,
+    clientId: clientId || '',
+    clientName: clientName || '',
+    qty: units,
+    saleDate: saleDate || new Date().toISOString().slice(0, 10),
+    costs: clean(costs),
+    pricing: clean(pricing),
+    total,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.update(api.ref('products', product.id), {
+    stockQty: (Number(product.stockQty) || 0) - units,
+    updatedAt: serverTimestamp(),
+  });
+
+  const txRef = api.ref('transactions', genId());
+  batch.set(txRef, {
+    type: 'receita',
+    category: 'venda',
+    description: `Venda — ${units}× ${product.name}${clientName ? ` (${clientName})` : ''}`,
+    value: total,
+    date: saleDate || new Date().toISOString().slice(0, 10),
+    productSaleId: saleRef.id,
+    auto: true,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+  logActivity(api.uid, 'registrou venda', 'productSales', `${units}× ${product.name}`, `${clientName || 'sem cliente'} — R$ ${total.toFixed(2)}`);
+};
+
+export const removeSale = async (api, sale) => {
+  const product = sale._product;
+  const batch = api.batch();
+  batch.delete(api.ref('productSales', sale.id));
+  if (product) {
+    batch.update(api.ref('products', product.id), {
+      stockQty: (Number(product.stockQty) || 0) + (Number(sale.qty) || 1),
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
+  logActivity(api.uid, 'excluiu venda', 'productSales', `${sale.qty}× ${sale.productName}`, 'estoque devolvido');
+};
