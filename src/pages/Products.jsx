@@ -202,10 +202,19 @@ export default function Products() {
           <h1 className="page-title">Produtos & Estoque</h1>
           <p className="muted text-sm">Receitas reutilizáveis produzidas em lote e vendidas aos poucos — ligado ao estoque de filamentos</p>
         </div>
-        <button className="btn-primary" onClick={openNew}>
+        <button className="btn-primary hidden lg:inline-flex" onClick={openNew}>
           <Plus size={16} /> Novo produto
         </button>
       </div>
+
+      {/* Botão flutuante "+" (só mobile), igual ao app de referência */}
+      <button
+        className="fixed bottom-24 right-4 z-20 flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 active:scale-95 lg:hidden"
+        onClick={openNew}
+        aria-label="Novo produto"
+      >
+        <Plus size={24} />
+      </button>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={Boxes} label="Produtos" value={stats.total} tone="blue" />
