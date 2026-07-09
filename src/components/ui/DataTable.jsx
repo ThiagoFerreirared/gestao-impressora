@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import EmptyState from './EmptyState';
 
 // Tabela com busca, filtros e ordenação — usada em todas as listas do sistema.
 // columns: [{ key, label, render?(row), sortValue?(row), className? }]
 // filters: [{ key, label, options: [{value,label}], fn?(row, value) }]
+// No celular (abaixo de sm) as linhas viram cartões: 1ª coluna = título,
+// última coluna = destaque à direita (ex.: estoque, total), meio = lista label/valor.
 export default function DataTable({
   data = [],
   columns = [],
@@ -101,48 +103,101 @@ export default function DataTable({
       {filtered.length === 0 ? (
         <EmptyState title={emptyTitle} message={emptyMessage} />
       ) : (
-        <div className="max-h-[65vh] overflow-auto">
-          <table className="table-base">
-            <thead>
-              <tr>
-                {columns.map((c) => (
-                  <th
-                    key={c.key}
-                    className={`${c.sortValue || c.sortable ? 'cursor-pointer select-none' : ''} ${c.className || ''}`}
-                    onClick={() => toggleSort(c.key, c.sortValue || c.sortable)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {c.label}
-                      {sort?.key === c.key &&
-                        (sort.dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-                    </span>
-                  </th>
-                ))}
-                {rowActions && <th className="text-right">Ações</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row) => (
-                <tr
+        <>
+          {/* ───── Mobile: lista em cartões (estilo estoque) ───── */}
+          <div className="max-h-[70vh] divide-y divide-slate-100 overflow-auto sm:hidden dark:divide-slate-800/70">
+            {filtered.map((row) => {
+              const titleCol = columns[0];
+              const statCol = columns.length > 1 ? columns[columns.length - 1] : null;
+              const midCols = columns.length > 2 ? columns.slice(1, -1) : [];
+              return (
+                <div
                   key={getRowKey(row)}
-                  className={onRowClick ? 'cursor-pointer' : ''}
+                  className={`flex flex-col gap-1.5 px-3.5 py-3 ${onRowClick ? 'cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/60' : ''}`}
                   onClick={() => onRowClick?.(row)}
                 >
-                  {columns.map((c) => (
-                    <td key={c.key} className={c.className || ''}>
-                      {c.render ? c.render(row) : row[c.key] ?? '—'}
-                    </td>
-                  ))}
-                  {rowActions && (
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">{rowActions(row)}</div>
-                    </td>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {titleCol.render ? titleCol.render(row) : row[titleCol.key] ?? '—'}
+                    </div>
+                    {statCol && (
+                      <div className="flex shrink-0 items-center gap-1 text-right">
+                        {statCol.render ? statCol.render(row) : row[statCol.key] ?? '—'}
+                        {onRowClick && <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />}
+                      </div>
+                    )}
+                  </div>
+                  {midCols.length > 0 && (
+                    <div className="space-y-0.5">
+                      {midCols.map((c) => (
+                        <div key={c.key} className="flex items-start justify-between gap-2 text-xs">
+                          <span className="shrink-0 pt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                            {c.label}
+                          </span>
+                          <span className="min-w-0 flex-1 text-right text-slate-600 dark:text-slate-300">
+                            {c.render ? c.render(row) : row[c.key] ?? '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
+                  {rowActions && (
+                    <div
+                      className="mt-1 flex items-center justify-end gap-1 border-t border-slate-100 pt-1.5 dark:border-slate-800/70"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {rowActions(row)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ───── Desktop: tabela ───── */}
+          <div className="hidden max-h-[65vh] overflow-auto sm:block">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  {columns.map((c) => (
+                    <th
+                      key={c.key}
+                      className={`${c.sortValue || c.sortable ? 'cursor-pointer select-none' : ''} ${c.className || ''}`}
+                      onClick={() => toggleSort(c.key, c.sortValue || c.sortable)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {c.label}
+                        {sort?.key === c.key &&
+                          (sort.dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                      </span>
+                    </th>
+                  ))}
+                  {rowActions && <th className="text-right">Ações</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    key={getRowKey(row)}
+                    className={onRowClick ? 'cursor-pointer' : ''}
+                    onClick={() => onRowClick?.(row)}
+                  >
+                    {columns.map((c) => (
+                      <td key={c.key} className={c.className || ''}>
+                        {c.render ? c.render(row) : row[c.key] ?? '—'}
+                      </td>
+                    ))}
+                    {rowActions && (
+                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">{rowActions(row)}</div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

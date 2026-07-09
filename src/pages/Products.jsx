@@ -289,6 +289,7 @@ export default function Products() {
         initialSort={{ key: 'name', dir: 'asc' }}
         emptyTitle="Nenhum produto cadastrado"
         emptyMessage='Cadastre um produto (ex.: "Chaveiro polvo azul") com a receita de filamento e produza o primeiro lote.'
+        onRowClick={(r) => { setAdjust(r); setAdjustQty(String(r.stockQty ?? 0)); }}
         rowActions={(r) => (
           <>
             <button className="btn-icon !text-green-500" title="Produzir lote (dá entrada no estoque e desconta filamento)" onClick={() => setProduce(r)}>
