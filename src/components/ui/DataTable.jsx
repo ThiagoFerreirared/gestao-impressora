@@ -10,6 +10,7 @@ import EmptyState from './EmptyState';
 export default function DataTable({
   data = [],
   columns = [],
+  cardColumns = null,
   searchKeys = [],
   searchPlaceholder = 'Buscar...',
   filters = [],
@@ -107,9 +108,10 @@ export default function DataTable({
           {/* ───── Mobile: lista em cartões (estilo estoque) ───── */}
           <div className="max-h-[70vh] divide-y divide-slate-100 overflow-auto sm:hidden dark:divide-slate-800/70">
             {filtered.map((row) => {
-              const titleCol = columns[0];
-              const statCol = columns.length > 1 ? columns[columns.length - 1] : null;
-              const midCols = columns.length > 2 ? columns.slice(1, -1) : [];
+              const cc = cardColumns || columns;
+              const titleCol = cc[0];
+              const statCol = cc.length > 1 ? cc[cc.length - 1] : null;
+              const midCols = cc.length > 2 ? cc.slice(1, -1) : [];
               return (
                 <div
                   key={getRowKey(row)}

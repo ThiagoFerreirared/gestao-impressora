@@ -22,7 +22,7 @@ import { FormGrid, Input, Select, Textarea } from '../components/ui/Field';
 import { AMS_SLOTS, PRODUCT_CATEGORIES, PRODUCT_STOCK_STATUS } from '../lib/constants';
 import { productFilamentCost, productStockStatus, productUnitCost, suggestedPrice } from '../lib/calculations';
 import { adjustProductStock, produceStock } from '../lib/ops';
-import { dateBR, durationInput, grams, hoursLabel, money, parseDuration, toNum, uid as genId } from '../lib/format';
+import { dateBR, dateTimeBR, durationInput, grams, hoursLabel, money, parseDuration, toNum, uid as genId } from '../lib/format';
 
 const EMPTY = {
   name: '',
@@ -225,6 +225,26 @@ export default function Products() {
             label: 'Estoque',
             options: Object.entries(PRODUCT_STOCK_STATUS).map(([value, v]) => ({ value, label: v.label })),
             fn: (r, v) => r._stockStatus === v,
+          },
+        ]}
+        cardColumns={[
+          {
+            key: 'name',
+            render: (r) => (
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">{r.name}</p>
+                <p className="text-xs text-slate-400">{dateTimeBR(r.updatedAt || r.createdAt)}</p>
+              </div>
+            ),
+          },
+          {
+            key: 'stock',
+            render: (r) => (
+              <div className="space-y-1 text-right">
+                <p className="text-base font-bold">{Number(r.stockQty) || 0} <span className="text-xs font-normal muted">un.</span></p>
+                <StatusBadge map={PRODUCT_STOCK_STATUS} value={r._stockStatus} />
+              </div>
+            ),
           },
         ]}
         columns={[
